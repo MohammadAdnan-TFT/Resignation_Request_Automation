@@ -1,0 +1,19 @@
+{
+  "name": "cardekhoautomation",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.45.3",
+    "@types/node": "^22.0.0"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1665.0",
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5"
+  }
+}
