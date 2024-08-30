@@ -240,7 +240,8 @@ const downloadFile = async (url, filePath) => {
         //Verify resign
         await page.waitForSelector(selectors.successNotification);
         
-    } catch {
+    } catch (error){
+        console.log(error);
         throw new Error('Resign Failed. Please try again.');
     }
 
