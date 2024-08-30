@@ -93,6 +93,30 @@ const values = {
 
 };
 
+const getMimeTypeFromUrl = async (url) => {
+    try {
+        const response = await axios.head(url); // Perform a HEAD request to get headers only
+        const contentType = response.headers['content-type'];
+        
+        if(!contentType){
+            throw new Error("Could not determine content type from headers.");
+        }
+        return contentType;
+    } catch (error) {
+        console.error('Error retrieving MIME type:', error.message);
+        return null;
+    }
+}
+
+const getFileBufferFromUrl = async (url) => {
+    const response = await axios({
+        url,
+        method: 'GET',
+        responseType: 'arraybuffer',
+    });
+
+    return Buffer.from(response.data);
+};
 
 const revokeResign = async ( {page} ) => {
 
@@ -115,40 +139,64 @@ const revokeResign = async ( {page} ) => {
     console.log("Revoke Resigned Successfully")
 };
 
-const downloadFile = async (url, filePath) => {
-    const writer = fs.createWriteStream(filePath);
-    const response = await axios({
-        url,
-        method: 'GET',
-        responseType: 'stream'
-    });
+// const downloadFile = async (url, filePath) => {
+//     const writer = fs.createWriteStream(filePath);
+//     const response = await axios({
+//         url,
+//         method: 'GET',
+//         responseType: 'stream'
+//     });
 
-    response.data.pipe(writer);
+//     response.data.pipe(writer);
 
-    return new Promise((resolve, reject) => {
-        writer.on('finish', resolve);
-        writer.on('error', reject);
-    });
-};
+//     return new Promise((resolve, reject) => {
+//         writer.on('finish', resolve);
+//         writer.on('error', reject);
+//     });
+// };
 
 
 (async () => {
     
-    const filePath = path.resolve(__dirname, 'downloaded-file.pdf');
+    // const filePath = path.resolve(__dirname, 'downloaded-file.pdf');
 
-    // Download the file
+    // // Download the file
+    // try {
+    //     await downloadFile(fileDownload, filePath);
+    //     console.log('File downloaded successfully.');
+
+    //     // Check if the file was actually downloaded
+    //     if (!fs.existsSync(filePath)) {
+    //         throw new Error('File download failed.');
+    //     }
+    // } catch (error) {
+    //     console.error('Error downloading the file:', error.message);
+    //     return;
+    // }
+
+    let fileBuffer;
+    let fileName;
+    let mimeType;
+
     try {
-        await downloadFile(fileDownload, filePath);
-        console.log('File downloaded successfully.');
+        // Get the MIME type from the file URL
+        mimeType = await getMimeTypeFromUrl(fileDownload);
 
-        // Check if the file was actually downloaded
-        if (!fs.existsSync(filePath)) {
-            throw new Error('File download failed.');
+        // Ensure the MIME type is valid or throw an error
+        if (!mimeType) {
+            throw new Error('Unsupported file type');
         }
+
+        // Download the file buffer from the URL
+        fileBuffer = await getFileBufferFromUrl(fileDownload);
+        fileName = path.basename(fileDownload);
+
+        console.log('File buffer extracted successfully');
     } catch (error) {
-        console.error('Error downloading the file:', error.message);
-        return;
+        console.error('Error processing the file:', error.message);
+        throw error;
     }
+
 
     const browser = await chromium.launch({ headless: false }); // headless false to allow OTP entry
     const page = await browser.newPage();
@@ -199,8 +247,13 @@ const downloadFile = async (url, filePath) => {
     }
 
     // Fill possible feilds
-    
-    await page.setInputFiles(selectors.uploadFile, filePath);  // Upload File in attachment
+    await page.waitForSelector(selectors.uploadFile, { timeout: 5000, visible: true });
+    await page.setInputFiles(selectors.uploadFile, {
+        name: fileName,
+        mimeType: mimeType,
+        buffer: fileBuffer,
+    });
+    // await page.setInputFiles(selectors.uploadFile, filePath);  // Upload File in attachment
 
     await page.fill(selectors.comment, values.comment);   // Insert comment if any
 
@@ -326,7 +379,13 @@ const downloadFile = async (url, filePath) => {
     await page.locator(selectors.doNotRehireComment).fill(values.doNotRehireComment);
 
     //file upload  2
-    await page.setInputFiles(selectors.secondAttachment, filePath);  // Upload File in attachment
+    await page.waitForSelector(selectors.secondAttachment, { timeout: 5000, visible: true });
+    await page.setInputFiles(selectors.secondAttachment, {
+        name: fileName,
+        mimeType: mimeType,
+        buffer: fileBuffer,
+    });
+    // await page.setInputFiles(selectors.secondAttachment, filePath);  // Upload File in attachment
 
     await page.waitForTimeout(5000);
     try {
